@@ -1,3 +1,11 @@
+# KUNCI KRIPTO & RAHASIA
+# =======================
+*.pem
+*.key
+*.priv
+.env
+.env.local
+
 # Logs
 logs
 *.log
