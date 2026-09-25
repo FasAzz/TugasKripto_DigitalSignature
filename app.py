@@ -3,7 +3,8 @@ import os
 import json
 import qrcode
 from crypto_core.signer import CryptoSigner
-from pdf_handler.embed_pdf import embed_qr_ke_pdf  # Menggunakan nama fungsi Kamila
+from pdf_handler.embed_pdf import embed_qr_ke_pdf  # Menggunakan modul Kamila
+from crypto_core.verifier import extract_qr_data_from_pdf  # Modul pembaca QR verifikasi
 
 app = Flask(__name__)
 
@@ -18,6 +19,9 @@ signer = CryptoSigner()
 def home():
     return render_template('index.html')
 
+# ==========================================
+# 1. ENDPOINT PENANDATANGANAN DOKUMEN (SIGN)
+# ==========================================
 @app.route('/api/sign', methods=['POST'])
 def sign_document():
     try:
@@ -68,6 +72,70 @@ def sign_document():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# ==========================================
+# 2. ENDPOINT VERIFIKASI KEASLIAN DOKUMEN (VERIFY)
+# ==========================================
+@app.route('/api/verify', methods=['POST'])
+def verify_document():
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "Tidak ada file PDF yang diunggah untuk verifikasi"}), 400
+
+        file = request.files['file']
+        temp_pdf_path = os.path.join(UPLOAD_FOLDER, f"verify_{file.filename}")
+        file.save(temp_pdf_path)
+
+        # 1. Ekstrak metadata JSON dari QR Code di dalam PDF
+        metadata = extract_qr_data_from_pdf(temp_pdf_path)
+        if not metadata:
+            if os.path.exists(temp_pdf_path):
+                os.remove(temp_pdf_path)
+            return jsonify({
+                "status": "INVALID",
+                "message": "Dokumen tidak memiliki QR Code Tanda Tangan Digital yang sah!"
+            }), 200
+
+        # 2. Hitung ulang Hash SHA-256 dari PDF yang diunggah saat ini
+        current_hash_bytes = signer.get_file_hash(temp_pdf_path)
+        current_hash_hex = current_hash_bytes.hex()
+
+        # 3. Ambil data asli dari QR Code
+        original_signer = metadata.get("signer", "Tidak Diketahui")
+        original_hash_hex = metadata.get("hash_sha256", "")
+        signature_hex = metadata.get("signature", "")
+
+        signature_bytes = bytes.fromhex(signature_hex)
+
+        # 4. Verifikasi Tanda Tangan Kriptografi RSA-2048 & Hash
+        is_signature_valid = signer.verify_signature(current_hash_bytes, signature_bytes)
+        is_hash_matching = (current_hash_hex == original_hash_hex)
+
+        if os.path.exists(temp_pdf_path):
+            os.remove(temp_pdf_path)
+
+        # 5. Hasil Evaluasi Keaslian Dokumen
+        if is_signature_valid and is_hash_matching:
+            return jsonify({
+                "status": "VALID",
+                "message": "Dokumen 100% Asli & Belum Pernah Dimodifikasi!",
+                "signer": original_signer,
+                "hash_sha256": current_hash_hex
+            }), 200
+        else:
+            return jsonify({
+                "status": "MODIFIED",
+                "message": "PERINGATAN: Dokumen telah dimodifikasi atau tanda tangan tidak sah!",
+                "signer": original_signer,
+                "current_hash": current_hash_hex,
+                "original_hash": original_hash_hex
+            }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# 3. ENDPOINT DOWNLOAD FILE DOKUMEN
+# ==========================================
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
     file_path = os.path.join(OUTPUT_FOLDER, filename)
