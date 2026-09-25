@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, render_template
 import os
 import json
 import qrcode
@@ -16,7 +16,7 @@ signer = CryptoSigner()
 
 @app.route('/')
 def home():
-    return jsonify({"status": "Server Digital Signature Aktif!", "key_status": "RSA-2048 Ready"})
+    return render_template('index.html')
 
 @app.route('/api/sign', methods=['POST'])
 def sign_document():
