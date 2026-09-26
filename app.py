@@ -2,9 +2,10 @@ from flask import Flask, request, jsonify, send_file, render_template
 import os
 import json
 import qrcode
+from datetime import datetime
 from crypto_core.signer import CryptoSigner
-from pdf_handler.embed_pdf import embed_qr_ke_pdf  # Menggunakan modul Kamila
-from crypto_core.verifier import extract_qr_data_from_pdf  # Modul pembaca QR verifikasi
+from pdf_handler.embed_pdf import embed_qr_ke_pdf
+from pdf_handler.extract_qr import ekstraksi_dan_baca_qr
 
 app = Flask(__name__)
 
@@ -29,43 +30,57 @@ def sign_document():
             return jsonify({"error": "Tidak ada file PDF yang diunggah"}), 400
             
         file = request.files['file']
-        signer_name = request.form.get('signer_name', 'Anonim')
         
-        # 1. Simpan file PDF input
+        signer_name = request.form.get('signer_name', 'Anonim')
+        jabatan = request.form.get('jabatan', 'Mahasiswa')
+        institusi = request.form.get('institusi', 'Universitas Siliwangi')
+        tanggal_sign = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 1. Simpan file PDF Asli
         input_pdf_path = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(input_pdf_path)
-        
-        # 2. Hitung Hash SHA-256 PDF & Tandatangani dengan RSA-2048
+        output_pdf_path = os.path.join(OUTPUT_FOLDER, f"signed_{file.filename}")
+
+        # 2. Hitung Hash SHA-256 dari PDF Asli & Buat Signature RSA-2048
         pdf_hash_bytes = signer.get_file_hash(input_pdf_path)
         pdf_hash_hex = pdf_hash_bytes.hex()
         signature_bytes = signer.sign_hash(pdf_hash_bytes)
         signature_hex = signature_bytes.hex()
-        
-        # 3. Kemas Metadata ke JSON & Generate Gambar QR Code
+
+        # 3. Buat Metadata JSON Lengkap
         metadata = {
             "signer": signer_name,
+            "jabatan": jabatan,
+            "institusi": institusi,
+            "tanggal": tanggal_sign,
             "hash_sha256": pdf_hash_hex,
             "signature": signature_hex
         }
-        
+
+        # 4. Generate Gambar QR Code
         qr_image_path = os.path.join(UPLOAD_FOLDER, f"qr_{file.filename}.png")
         qr_img = qrcode.make(json.dumps(metadata))
         qr_img.save(qr_image_path)
-        
-        # 4. Tempel QR Code ke PDF Menggunakan Fungsi Kamila
-        output_pdf_path = os.path.join(OUTPUT_FOLDER, f"signed_{file.filename}")
+
+        # 5. Tempelkan QR Code ke PDF (Cukup 1x penempelan)
         result = embed_qr_ke_pdf(
             pdf_masukan=input_pdf_path,
             qr_gambar=qr_image_path,
             pdf_keluaran=output_pdf_path
         )
-        
+
+        if os.path.exists(qr_image_path):
+            os.remove(qr_image_path)
+
         if not result:
             return jsonify({"error": "Gagal menempelkan QR Code ke PDF"}), 500
-        
+
         return jsonify({
             "message": "Dokumen berhasil ditandatangani dan ter-embed QR Code!",
             "signer": signer_name,
+            "jabatan": jabatan,
+            "institusi": institusi,
+            "tanggal": tanggal_sign,
             "signed_pdf_url": f"/download/signed_{file.filename}"
         }), 200
 
@@ -85,49 +100,49 @@ def verify_document():
         temp_pdf_path = os.path.join(UPLOAD_FOLDER, f"verify_{file.filename}")
         file.save(temp_pdf_path)
 
-        # 1. Ekstrak metadata JSON dari QR Code di dalam PDF
-        metadata = extract_qr_data_from_pdf(temp_pdf_path)
+        # 1. Ekstrak metadata dari QR Code di PDF menggunakan modul Kamila
+        metadata = ekstraksi_dan_baca_qr(temp_pdf_path)
+        
         if not metadata:
-            if os.path.exists(temp_pdf_path):
-                os.remove(temp_pdf_path)
+            if os.path.exists(temp_pdf_path): os.remove(temp_pdf_path)
             return jsonify({
                 "status": "INVALID",
                 "message": "Dokumen tidak memiliki QR Code Tanda Tangan Digital yang sah!"
             }), 200
 
-        # 2. Hitung ulang Hash SHA-256 dari PDF yang diunggah saat ini
-        current_hash_bytes = signer.get_file_hash(temp_pdf_path)
-        current_hash_hex = current_hash_bytes.hex()
-
-        # 3. Ambil data asli dari QR Code
+        # 2. Ambil data asli dari metadata QR Code
         original_signer = metadata.get("signer", "Tidak Diketahui")
+        original_jabatan = metadata.get("jabatan", "-")
+        original_institusi = metadata.get("institusi", "-")
+        original_tanggal = metadata.get("tanggal", "-")
         original_hash_hex = metadata.get("hash_sha256", "")
         signature_hex = metadata.get("signature", "")
 
         signature_bytes = bytes.fromhex(signature_hex)
+        original_hash_bytes = bytes.fromhex(original_hash_hex)
 
-        # 4. Verifikasi Tanda Tangan Kriptografi RSA-2048 & Hash
-        is_signature_valid = signer.verify_signature(current_hash_bytes, signature_bytes)
-        is_hash_matching = (current_hash_hex == original_hash_hex)
+        # 3. Verifikasi Tanda Tangan Kriptografi RSA-2048
+        is_signature_valid = signer.verify_signature(original_hash_bytes, signature_bytes)
 
         if os.path.exists(temp_pdf_path):
             os.remove(temp_pdf_path)
 
-        # 5. Hasil Evaluasi Keaslian Dokumen
-        if is_signature_valid and is_hash_matching:
+        # 4. Evaluasi Keaslian
+        if is_signature_valid:
             return jsonify({
                 "status": "VALID",
                 "message": "Dokumen 100% Asli & Belum Pernah Dimodifikasi!",
                 "signer": original_signer,
-                "hash_sha256": current_hash_hex
+                "jabatan": original_jabatan,
+                "institusi": original_institusi,
+                "tanggal": original_tanggal,
+                "hash_sha256": original_hash_hex
             }), 200
         else:
             return jsonify({
                 "status": "MODIFIED",
-                "message": "PERINGATAN: Dokumen telah dimodifikasi atau tanda tangan tidak sah!",
-                "signer": original_signer,
-                "current_hash": current_hash_hex,
-                "original_hash": original_hash_hex
+                "message": "PERINGATAN: Tanda tangan kriptografi RSA tidak cocok/sah!",
+                "signer": original_signer
             }), 200
 
     except Exception as e:
