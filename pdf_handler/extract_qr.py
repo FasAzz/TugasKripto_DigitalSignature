@@ -4,7 +4,10 @@ import numpy as np
 import json
 try:
     from pyzbar.pyzbar import decode as pyzbar_decode
-except ImportError:
+except Exception:
+    # Ditangkap lebih luas dari ImportError, karena di sebagian sistem
+    # (contohnya Python dari Microsoft Store) pyzbar bisa gagal load
+    # library DLL-nya dan melempar FileNotFoundError/OSError, bukan ImportError
     pyzbar_decode = None
 
 def ekstraksi_dan_baca_qr(pdf_path: str) -> dict:
@@ -21,7 +24,6 @@ def ekstraksi_dan_baca_qr(pdf_path: str) -> dict:
                 base_image = doc.extract_image(xref)
                 image_bytes = base_image["image"]
 
-                # Convert byte image ke OpenCV format
                 nparr = np.frombuffer(image_bytes, np.uint8)
                 img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 

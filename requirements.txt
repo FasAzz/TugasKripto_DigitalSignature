@@ -3,3 +3,6 @@ qrcode
 pypdf
 pillow
 flask
+pymupdf
+opencv-python
+pyzbar
