@@ -173,6 +173,9 @@
   .panel{ display:none; padding:32px 36px 30px; position:relative; z-index:1; }
   .panel.active{ display:block; }
 
+  .field-row{ display:flex; gap:16px; }
+  .field-row .field{ flex:1; }
+
   .field{ margin-bottom:22px; }
   .field label{ display:block; font-size:13px; color:var(--text-soft); margin-bottom:8px; }
   .field input[type=text]{
@@ -230,7 +233,7 @@
 
   .result h3{ font-family:var(--serif); font-weight:600; font-size:17px; margin:2px 0 4px; color:var(--text); }
   .result p.msg{ font-size:13.5px; color:var(--text-soft); margin:0 0 12px; }
-  .kv{ font-family:var(--mono); font-size:12px; color:var(--text-soft); margin:3px 0; word-break:break-all; }
+  .kv{ font-family:var(--mono); font-size:12px; color:var(--text-soft); margin:4px 0; word-break:break-all; }
   .kv b{ color:var(--text); font-family:var(--sans); font-weight:600; }
 
   .ribbon{
@@ -251,6 +254,7 @@
     .steps{ grid-template-columns:1fr; gap:22px; }
     .steps::before{ display:none; }
     .letterhead nav a{ display:none; }
+    .field-row{ flex-direction:column; gap:0; }
   }
 </style>
 </head>
@@ -289,12 +293,12 @@
       <div class="step s-ochre">
         <div class="num">1</div>
         <h3>Unggah dokumen</h3>
-        <p>Kirim berkas PDF beserta nama penandatangan lewat formulir di bawah.</p>
+        <p>Kirim berkas PDF beserta nama, jabatan, dan institusi penandatangan lewat formulir di bawah.</p>
       </div>
       <div class="step s-red">
         <div class="num">2</div>
         <h3>Hash &amp; tandatangani</h3>
-        <p>Sistem menghitung hash SHA-256 dokumen, menandatanganinya dengan RSA-2048 (padding PSS), lalu menyematkan hasilnya sebagai kode QR di halaman PDF.</p>
+        <p>Sistem menghitung hash SHA-256 dokumen, menandatanganinya dengan RSA-2048, lalu menyematkan hasilnya sebagai kode QR di halaman PDF.</p>
       </div>
       <div class="step s-teal">
         <div class="num">3</div>
@@ -324,7 +328,18 @@
         <form id="signForm">
           <div class="field">
             <label for="signerName">Nama penandatangan</label>
-            <input type="text" id="signerName" placeholder="mis. Ari Sakti Dwi Putra" required>
+            <input type="text" id="signerName" placeholder="mis. Mochammad Fasha A." required>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="jabatan">Jabatan</label>
+              <input type="text" id="jabatan" placeholder="mis. Mahasiswa / Dosen" required>
+            </div>
+            <div class="field">
+              <label for="institusi">Institusi</label>
+              <input type="text" id="institusi" placeholder="mis. Universitas Siliwangi" required>
+            </div>
           </div>
 
           <div class="field">
@@ -462,6 +477,8 @@ document.getElementById('signForm').addEventListener('submit', async (e) => {
 
   const fd = new FormData();
   fd.append('signer_name', document.getElementById('signerName').value);
+  fd.append('jabatan', document.getElementById('jabatan').value);
+  fd.append('institusi', document.getElementById('institusi').value);
   fd.append('file', file);
 
   try{
@@ -474,8 +491,11 @@ document.getElementById('signForm').addEventListener('submit', async (e) => {
           <div class="stamp">${checkIcon}</div>
           <div>
             <h3>Dokumen telah ditandatangani</h3>
-            <p class="msg">Kode QR berisi hash SHA-256 dan tanda tangan RSA telah dibubuhkan ke berkas.</p>
+            <p class="msg">Kode QR berisi metadata identitas, hash SHA-256, dan tanda tangan RSA telah dibubuhkan ke berkas.</p>
             <div class="kv"><b>Penandatangan </b>${data.signer}</div>
+            <div class="kv"><b>Jabatan </b>${data.jabatan}</div>
+            <div class="kv"><b>Institusi </b>${data.institusi}</div>
+            <div class="kv"><b>Tanggal </b>${data.tanggal}</div>
             <a class="ribbon" href="${data.signed_pdf_url}" target="_blank">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 21h16"/></svg>
               Unduh dokumen bertanda tangan
@@ -525,6 +545,9 @@ document.getElementById('verifyForm').addEventListener('submit', async (e) => {
             <h3>Dokumen asli</h3>
             <p class="msg">${data.message}</p>
             <div class="kv"><b>Penandatangan </b>${data.signer}</div>
+            <div class="kv"><b>Jabatan </b>${data.jabatan}</div>
+            <div class="kv"><b>Institusi </b>${data.institusi}</div>
+            <div class="kv"><b>Tanggal Sign </b>${data.tanggal}</div>
             <div class="kv"><b>Hash SHA-256 </b>${data.hash_sha256}</div>
           </div>
         </div>`;
@@ -536,8 +559,8 @@ document.getElementById('verifyForm').addEventListener('submit', async (e) => {
             <h3>Dokumen telah diubah</h3>
             <p class="msg">${data.message}</p>
             <div class="kv"><b>Penandatangan asli </b>${data.signer}</div>
-            <div class="kv"><b>Hash saat ini </b>${data.current_hash}</div>
-            <div class="kv"><b>Hash asli </b>${data.original_hash}</div>
+            <div class="kv"><b>Hash saat ini </b>${data.current_hash || '-'}</div>
+            <div class="kv"><b>Hash asli </b>${data.original_hash || '-'}</div>
           </div>
         </div>`;
     } else if(data.status === 'INVALID'){

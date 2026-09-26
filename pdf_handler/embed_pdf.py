@@ -1,4 +1,4 @@
-import fitz  # PyMuPDF
+import pymupdf as fitz
 
 def embed_qr_ke_pdf(pdf_masukan, qr_gambar, pdf_keluaran, posisi_x=400, posisi_y=650, ukuran=100):
     """
