@@ -158,3 +158,6 @@ uploads/*
 output/*
 !uploads/.gitkeep
 !output/.gitkeep
+
+__pycache__/
+*.pyc
