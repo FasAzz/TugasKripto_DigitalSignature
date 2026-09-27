@@ -6,3 +6,4 @@ flask
 pymupdf
 opencv-python
 pyzbar
+python-dotenv

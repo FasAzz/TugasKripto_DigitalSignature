@@ -327,6 +327,11 @@
       <div class="panel active" id="panelSign">
         <form id="signForm">
           <div class="field">
+            <label for="signerId">ID Penandatangan (identitas kunci)</label>
+            <input type="text" id="signerId" placeholder="mis. anggota1 / fasha" required>
+          </div>
+
+          <div class="field">
             <label for="signerName">Nama penandatangan</label>
             <input type="text" id="signerName" placeholder="mis. Mochammad Fasha A." required>
           </div>
@@ -476,6 +481,7 @@ document.getElementById('signForm').addEventListener('submit', async (e) => {
   btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/></svg><span>Memproses…</span>';
 
   const fd = new FormData();
+  fd.append('signer_id', document.getElementById('signerId').value);
   fd.append('signer_name', document.getElementById('signerName').value);
   fd.append('jabatan', document.getElementById('jabatan').value);
   fd.append('institusi', document.getElementById('institusi').value);
@@ -493,6 +499,7 @@ document.getElementById('signForm').addEventListener('submit', async (e) => {
             <h3>Dokumen telah ditandatangani</h3>
             <p class="msg">Kode QR berisi metadata identitas, hash SHA-256, dan tanda tangan RSA telah dibubuhkan ke berkas.</p>
             <div class="kv"><b>Penandatangan </b>${data.signer}</div>
+            <div class="kv"><b>ID Penandatangan </b>${data.signer_id}</div>
             <div class="kv"><b>Jabatan </b>${data.jabatan}</div>
             <div class="kv"><b>Institusi </b>${data.institusi}</div>
             <div class="kv"><b>Tanggal </b>${data.tanggal}</div>
@@ -537,30 +544,23 @@ document.getElementById('verifyForm').addEventListener('submit', async (e) => {
     const res = await fetch('/api/verify', { method:'POST', body:fd });
     const data = await res.json();
 
-    if(data.status === 'VALID'){
+    if(data.status === 'VALID' || data.status === 'MODIFIED'){
+      const isValid = data.status === 'VALID';
+      const daftarSigner = (data.signers || []).map(s => `
+          <div class="kv" style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--line);">
+            <b>#${s.urutan} — ${s.status === 'VALID' ? '✅' : '⚠️'} ${s.signer}</b><br>
+            ${s.jabatan}, ${s.institusi}<br>
+            Tanggal: ${s.tanggal}<br>
+            ${s.status !== 'VALID' ? `<span style="color:var(--danger)">${s.keterangan || 'Tahap ini tidak valid'}</span>` : ''}
+          </div>`).join('');
+
       resultBox.innerHTML = `
         <div class="stamp-row">
-          <div class="stamp">${checkIcon}</div>
+          <div class="stamp ${isValid ? '' : 'warn'}">${isValid ? checkIcon : warnIcon}</div>
           <div>
-            <h3>Dokumen asli</h3>
+            <h3>${isValid ? 'Dokumen asli' : 'Dokumen telah diubah'}</h3>
             <p class="msg">${data.message}</p>
-            <div class="kv"><b>Penandatangan </b>${data.signer}</div>
-            <div class="kv"><b>Jabatan </b>${data.jabatan}</div>
-            <div class="kv"><b>Institusi </b>${data.institusi}</div>
-            <div class="kv"><b>Tanggal Sign </b>${data.tanggal}</div>
-            <div class="kv"><b>Hash SHA-256 </b>${data.hash_sha256}</div>
-          </div>
-        </div>`;
-    } else if(data.status === 'MODIFIED'){
-      resultBox.innerHTML = `
-        <div class="stamp-row">
-          <div class="stamp warn">${warnIcon}</div>
-          <div>
-            <h3>Dokumen telah diubah</h3>
-            <p class="msg">${data.message}</p>
-            <div class="kv"><b>Penandatangan asli </b>${data.signer}</div>
-            <div class="kv"><b>Hash saat ini </b>${data.current_hash || '-'}</div>
-            <div class="kv"><b>Hash asli </b>${data.original_hash || '-'}</div>
+            ${daftarSigner}
           </div>
         </div>`;
     } else if(data.status === 'INVALID'){
