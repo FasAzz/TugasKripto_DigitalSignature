@@ -7,3 +7,4 @@ pymupdf
 opencv-python
 pyzbar
 python-dotenv
+openpyxl
