@@ -25,6 +25,9 @@ import sys
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT_DIR)
 
+from dotenv import load_dotenv
+load_dotenv(os.path.join(ROOT_DIR, ".env"))
+
 from crypto_core.signer import CryptoSigner
 
 
@@ -44,7 +47,7 @@ def main():
 
     # 3. Kita perlu 1 file untuk dihitung hash-nya. Pakai file PDF yang
     #    sudah ada di folder uji_temper/. Ganti nama file ini kalau perlu.
-    file_uji = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dokumen_polos.pdf")
+    file_uji = os.path.join(os.path.dirname(os.path.abspath(__file__)), "signed_dokumen_uji.pdf")
     if not os.path.exists(file_uji):
         print(f"File '{file_uji}' tidak ditemukan. Ganti FILE_UJI ke file PDF yang ada di folder uji_temper/.")
         return

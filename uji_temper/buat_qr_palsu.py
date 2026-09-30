@@ -4,8 +4,8 @@ import fitz  # ini pymupdf
 import shutil
 
 # 1. PDF target yang mau "dipalsukan" seolah-olah sudah ditandatangani
-pdf_asli = "polos_baru.pdf"
-pdf_hasil = "dokumen_qr_palsu_baru.pdf"
+pdf_asli = "signed_dokumen_uji.pdf"
+pdf_hasil = "qr_palsu_dokumen_uji.pdf"
 
 # 2. Metadata NGARANG BEBAS, seperti yang dibuat penyerang yang TIDAK
 #    punya akses ke private key server, jadi cuma bisa nebak-nebak

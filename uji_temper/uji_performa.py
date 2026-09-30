@@ -26,6 +26,9 @@ import statistics
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT_DIR)
 
+from dotenv import load_dotenv
+load_dotenv(os.path.join(ROOT_DIR, ".env"))
+
 from crypto_core.signer import CryptoSigner
 from cryptography.hazmat.primitives import serialization
 
